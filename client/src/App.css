@@ -46,7 +46,7 @@
   overflow: scroll;
 }
 
-.commandP, .titleH4, .descP, .playersP, .invP, .messageP, .errorP {
+.commandP, .titleH4, .descP, .playersP, .invP, .messageP, .errorP, .cooldownP {
   margin: 5px 10px;
 }
 
@@ -56,4 +56,12 @@
 
 .playersP {
   color: orange;
+}
+
+.errorP {
+  color: red;
+}
+
+.cooldownP {
+  color: dodgerblue;
 }
