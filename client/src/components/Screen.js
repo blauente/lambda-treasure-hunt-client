@@ -2,6 +2,9 @@ import React, { Component } from 'react';
 import axios from 'axios';
 
 let graph = {};
+if (localStorage.getItem("graph")) {
+    graph = JSON.parse(localStorage.getItem("graph"));
+}
 
 class Screen extends Component {
     constructor(props) {
@@ -99,36 +102,50 @@ class Screen extends Component {
         this.setState({input: event.target.value})
     }
 
-    startBFT = () => {
+    startDFT = () => {
         // this.setState(function () {return {traversing: true}});
         // if (this.state.traversing) {
             
             this.interval2 = setInterval( () => {
-
-                graph[this.state.currentRoom] = {"coords": this.state.coords, "exits": ["?", "?", "?", "?"]};
+                if (graph.length > 499) {
+                    clearInterval(this.interval2);
+                }
+                if (!graph[`Room ${this.state.room_id}`]){
+                    let object = {};
+                    for (let i = 0; i < this.state.exits.length; i++) {
+                        object[this.state.exits[i]] = "?"
+                    }
+                    graph[`Room ${this.state.room_id}`] = {"coords": this.state.coords, "exits": object};
+                }
                 console.log(graph);
 
-                const direction = this.state.exits[Math.floor(Math.random() * this.state.exits.length)];
-                let index = 0;
-                let oppIndex = 0;
-                if (direction === "n") {
-                    index = 0;
-                    oppIndex = 1;
-                } else if (direction === "s") {
-                    index = 1;
-                    oppIndex = 0;
-                } else if (direction === "e") {
-                    index = 2;
-                    oppIndex = 3;
+                const unexplored = this.state.exits.filter(exit => graph[`Room ${this.state.room_id}`]["exits"][exit] === "?")
+                console.log("unexplored", unexplored)
+                let direction = "null";
+                if (unexplored.length > 0) {
+                    direction = unexplored[Math.floor(Math.random() * unexplored.length)];
                 } else {
-                    index = 3;
-                    oppIndex = 2;
+                    direction = this.findClosestUnexplored(this.state.room_id, this.state.exits);
+                }
+                // let index = 0;
+                let oppDir = 'null';
+                if (direction === "n") {
+                    // index = 0;
+                    oppDir = 's';
+                } else if (direction === "s") {
+                    // index = 1;
+                    oppDir = 'n';
+                } else if (direction === "e") {
+                    // index = 2;
+                    oppDir = 'w';
+                } else {
+                    // index = 3;
+                    oppDir = 'e';
                 }
                 const data = {"direction": direction}
                 console.log("direction selected", direction);
                 this.setState(function () {return {prevRoom: this.state.currentRoom, prevID: this.state.room_id}});
                 
-
                 axios
                 .post('https://lambda-treasure-hunt.herokuapp.com/api/adv/move/', data, 
                 {headers: {Authorization: 'Token 1ca713aa4805a973344e3bee86f39961d50927b8'}})
@@ -142,9 +159,18 @@ class Screen extends Component {
                         room_id: response.data.room_id,
                         cooldown: parseInt(response.data.cooldown),
                         errors: response.data.errors}]}})
-                    graph[this.state.prevRoom]["exits"][index] = response.data.room_id;
-                    graph[response.data.title] = {"coords": this.state.coords, "exits": ["?", "?", "?", "?"]};
-                    graph[response.data.title]["exits"][oppIndex] = this.state.prevID;
+                    graph[`Room ${this.state.prevID}`]["exits"][direction] = response.data.room_id;
+                    // if (!graph[response.data.title]) {
+                    //     graph[response.data.title] = {"coords": this.state.coords, "exits": ["?", "?", "?", "?"]};
+                    // }
+                    if (!graph[`Room ${response.data.room_id}`]){
+                        let object = {};
+                        for (let i = 0; i < this.state.exits.length; i++) {
+                            object[this.state.exits[i]] = "?"
+                        }
+                        graph[`Room ${response.data.room_id}`] = {"coords": this.state.coords, "exits": object};
+                    }
+                    graph[`Room ${response.data.room_id}`]["exits"][oppDir] = this.state.prevID;
                     // this.timeout2 = setTimeout(() => this.startBFT, this.state.cooldown * 1000);
                 })
                 .catch(error => {
@@ -153,17 +179,52 @@ class Screen extends Component {
                         movesLog: [...this.state.movesLog, 
                         {error: error.response.data.error}],
                         cooldown: Math.round((parseFloat(error.response.data.cooldown)) * 100)/100})
-            })}, this.state.cooldown * 1500);
-
+                })
+            localStorage.setItem("graph", JSON.stringify(graph));
+            }, 7000);
+            
             // this.interval = setInterval(() => {this.setState(function () {return {cooldown: this.state.cooldown - 1}})}, 1000);
-            this.timeout2 = setTimeout(() => this.startBFT, this.state.cooldown * 1000);
+            // this.timeout2 = setTimeout(() => this.startBFT, this.state.cooldown * 1000);
         // }
     }
 
-    stopBFT = () => {
+    stopDFT = () => {
         // this.setState(function () {return {traversing: false}});
         // clearTimeout(this.timeout);
         clearInterval(this.interval2);
+    }
+
+    findClosestUnexplored = (room_id, exits) => {
+        let queue = [];
+        let visited = new Set();
+        queue.push(room_id);
+        visited.add(room_id);
+        while (queue.length > 0) {
+            const v = queue.shift();
+            let values = Object.values(graph[`Room ${room_id}`]["exits"]).filter(exit => exit !== "?");
+            console.log("values:", values)
+            if (v) {
+                for (let i = 0; i < exits.length; i++) {
+                    console.log("v:", v);
+                    console.log("graph at v:", graph[`Room ${v}`]);
+                    if (graph[`Room ${v}`]["exits"][exits[i]] === "?") {
+                        return exits[i];
+                    } else {
+                        const backtrack = Object.keys(graph[`Room ${v}`]["exits"])
+                        const random = backtrack[Math.floor(Math.random() * backtrack.length)];
+                        return random;
+                    }
+                }
+            }
+            for (let i = 0; i < exits.length; i++) {
+                if (graph[`Room ${v}`]) {
+                    if (!visited.has(graph[`Room ${v}`]["exits"][exits[i]])) {
+                        queue.push(graph[`Room ${v}`]["exits"][exits[i]]);
+                        visited.add(graph[`Room ${v}`]["exits"][exits[i]]);
+                    }
+                }
+            }
+        }
     }
 
     render() {
@@ -193,8 +254,8 @@ class Screen extends Component {
                 <form onSubmit={this.handleFormSubmit}>
                 <input type="text" value={this.state.input} onChange={this.handleInputChange}/>
                 <button type="submit">Submit</button>
-                <button onClick={this.startBFT}>Start mapping</button>
-                <button onClick={this.stopBFT}>Stop mapping</button>
+                <button onClick={this.startDFT}>Start mapping</button>
+                <button onClick={this.stopDFT}>Stop mapping</button>
                 <p>Cooldown: {this.state.cooldown}</p>
                 </form>
             </div>
