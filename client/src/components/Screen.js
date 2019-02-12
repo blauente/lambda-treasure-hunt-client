@@ -213,8 +213,16 @@ class Screen extends Component {
                         return exits[i];
                     } else {
                         const backtrack = Object.keys(graph[`Room ${v}`]["exits"])
-                        const random = backtrack[Math.floor(Math.random() * backtrack.length)];
-                        return random;
+                        const otherIDs = Object.values(graph[`Room ${v}`]["exits"])
+                        for (let j = 0; j < otherIDs.length; j++) {
+                            for (let k = 0; k < Object.keys(graph[`Room ${otherIDs[j]}`]["exits"]).length; k++)
+                            if (graph[`Room ${otherIDs[j]}`]["exits"][k] === "?") {
+                                return k
+                            } else {
+                                const random = backtrack[Math.floor(Math.random() * backtrack.length)];
+                                return random;
+                            }
+                        }
                     }
                 }
             }
