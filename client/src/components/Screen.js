@@ -24,6 +24,8 @@ class Screen extends Component {
             exits: [],
             room_id: 0
         }
+
+        this.graph = {}
     }
 
     componentDidMount = () => {
@@ -181,7 +183,7 @@ class Screen extends Component {
                         cooldown: Math.round((parseFloat(error.response.data.cooldown)) * 100)/100})
                 })
             localStorage.setItem("graph", JSON.stringify(graph));
-            }, 7000);
+            }, 6000);
             
             // this.interval = setInterval(() => {this.setState(function () {return {cooldown: this.state.cooldown - 1}})}, 1000);
             // this.timeout2 = setTimeout(() => this.startBFT, this.state.cooldown * 1000);

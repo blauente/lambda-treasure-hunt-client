@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import './App.css';
 import Screen from './components/Screen';
-import Map from './components/Map';
+import Map2 from './components/Map2';
 
 class App extends Component {
   render() {
@@ -9,7 +9,7 @@ class App extends Component {
       <div className="App">
         <h1>Lambda Treasure Hunt</h1>
         <Screen />
-        <Map />
+        <Map2 />
       </div>
     );
   }
