@@ -6,6 +6,8 @@ if (localStorage.getItem("graph")) {
     graph = JSON.parse(localStorage.getItem("graph"));
 }
 
+let visited = new Set();
+
 class Screen extends Component {
     constructor(props) {
         super(props);
@@ -20,12 +22,11 @@ class Screen extends Component {
             currentInv: '',
             cooldown: 0,
             traversing: false,
-            coords: (0,0),
+            coords: [],
             exits: [],
             room_id: 0
         }
 
-        this.graph = {}
     }
 
     componentDidMount = () => {
@@ -42,6 +43,14 @@ class Screen extends Component {
                     room_id: response.data.room_id,
                     cooldown: response.data.cooldown,
                     errors: response.data.errors}]}})
+                    if (!graph[`Room ${response.data.room_id}`]){
+                        let object = {};
+                        for (let i = 0; i < response.data.exits.length; i++) {
+                            object[response.data.exits[i]] = "?"
+                        }
+                        graph[`Room ${response.data.room_id}`] = {"coords": response.data.coordinates, "exits": object};
+                    }
+                    this.props.update(graph, this.state.room_id, this.state.coords.replace(/["()]/gi, '').split(","));
             })
             .catch(error => {
                 console.log("ERROR:", error, Object.getOwnPropertyNames(error));
@@ -50,7 +59,7 @@ class Screen extends Component {
                     {errors: error.response.data.errors}],
                     cooldown: Math.round((parseFloat(error.response.data.cooldown)) * 100)/100})
             })
-
+            console.log("coords from Screen.js", this.state.coords)
             this.interval = setInterval(() => {this.setState(function () {return {cooldown: this.state.cooldown - 1}})}, 1000);
             
     }
@@ -88,6 +97,8 @@ class Screen extends Component {
                     room_id: response.data.room_id,
                     cooldown: parseInt(response.data.cooldown),
                     errors: response.data.errors}]})
+
+                    
             })
             .catch(error => {
                 console.log("ERROR:", error, Object.getOwnPropertyNames(error));
@@ -120,7 +131,7 @@ class Screen extends Component {
                     graph[`Room ${this.state.room_id}`] = {"coords": this.state.coords, "exits": object};
                 }
                 console.log(graph);
-
+                console.log("exits in DFT", this.state.exits)
                 const unexplored = this.state.exits.filter(exit => graph[`Room ${this.state.room_id}`]["exits"][exit] === "?")
                 console.log("unexplored", unexplored)
                 let direction = "null";
@@ -162,28 +173,27 @@ class Screen extends Component {
                         cooldown: parseInt(response.data.cooldown),
                         errors: response.data.errors}]}})
                     graph[`Room ${this.state.prevID}`]["exits"][direction] = response.data.room_id;
-                    // if (!graph[response.data.title]) {
-                    //     graph[response.data.title] = {"coords": this.state.coords, "exits": ["?", "?", "?", "?"]};
-                    // }
-                    if (!graph[`Room ${response.data.room_id}`]){
-                        let object = {};
-                        for (let i = 0; i < this.state.exits.length; i++) {
-                            object[this.state.exits[i]] = "?"
-                        }
-                        graph[`Room ${response.data.room_id}`] = {"coords": this.state.coords, "exits": object};
+                    // if (!graph[`Room ${response.data.room_id}`]){
+                    let object = {};
+                    for (let i = 0; i < this.state.exits.length; i++) {
+                        object[this.state.exits[i]] = "?"
                     }
+                    graph[`Room ${response.data.room_id}`] = {"coords": this.state.coords, "exits": object};
+                    // }
                     graph[`Room ${response.data.room_id}`]["exits"][oppDir] = this.state.prevID;
                     // this.timeout2 = setTimeout(() => this.startBFT, this.state.cooldown * 1000);
+                    this.props.update(graph, this.state.room_id, this.state.coords.replace(/["()]/gi, '').split(","));
                 })
                 .catch(error => {
                     console.log("ERROR:", error, Object.getOwnPropertyNames(error));
                     this.setState({ 
                         movesLog: [...this.state.movesLog, 
-                        {error: error.response.data.error}],
-                        cooldown: Math.round((parseFloat(error.response.data.cooldown)) * 100)/100})
+                        {error: error}],
+                        // cooldown: Math.round((parseFloat(error.response.data.cooldown)) * 100)/100
+                    })
                 })
             localStorage.setItem("graph", JSON.stringify(graph));
-            }, 6000);
+            }, 11000);
             
             // this.interval = setInterval(() => {this.setState(function () {return {cooldown: this.state.cooldown - 1}})}, 1000);
             // this.timeout2 = setTimeout(() => this.startBFT, this.state.cooldown * 1000);
@@ -198,7 +208,7 @@ class Screen extends Component {
 
     findClosestUnexplored = (room_id, exits) => {
         let queue = [];
-        let visited = new Set();
+        // let visited = new Set();
         queue.push(room_id);
         visited.add(room_id);
         while (queue.length > 0) {
@@ -248,7 +258,7 @@ class Screen extends Component {
                 {history.map(move => 
                     <div>
                         {move.command ? <p className="commandP">{move.command}</p> : null}
-                        {move.title ? <h4 className="titleH4">{move.title}</h4> : null}
+                        {move.title ? <h4 className="titleH4">{move.title}-Room {move.room_id}</h4> : null}
                         {move.description ? <p className="descP">{move.description}</p> : null}
                         {/* Displays players if they are in the room and nothing if none are present. */}
                         {move.players ? move.players.length ? <p className="playersP">Players: {move.players.join(', ')}</p> : null : null}
