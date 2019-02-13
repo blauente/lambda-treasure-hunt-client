@@ -56,7 +56,7 @@ class Map2 extends Component {
                     marginTop: -(string.split(",")[1]*40-2000)+1000,
                     marginLeft: string.split(",")[0]*40-1800,
                 }
-                console.log("are they equal?", this.props.coordinates, string.split(","))
+                // console.log("are they equal?", this.props.coordinates, string.split(","))
                 if (this.checkIfArraysAreEqual(this.props.coordinates, string.split(","))) {
                     Object.assign(divStyle, {
                         backgroundColor: 'red'

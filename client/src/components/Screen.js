@@ -8,6 +8,10 @@ if (localStorage.getItem("graph")) {
 
 let visited = new Set();
 
+let backtrackArray = [];
+
+const inverse = {"n": "s", "s": "n", "e": "w", "w": "e"};
+
 class Screen extends Component {
     constructor(props) {
         super(props);
@@ -24,7 +28,8 @@ class Screen extends Component {
             traversing: false,
             coords: [],
             exits: [],
-            room_id: 0
+            room_id: 0,
+            graphLength: 0
         }
 
     }
@@ -56,10 +61,14 @@ class Screen extends Component {
                 console.log("ERROR:", error, Object.getOwnPropertyNames(error));
                 this.setState({ 
                     movesLog: [...this.state.movesLog, 
-                    {errors: error.response.data.errors}],
-                    cooldown: Math.round((parseFloat(error.response.data.cooldown)) * 100)/100})
+                    {errors: error}],
+                    // cooldown: Math.round((parseFloat(error.response.data.cooldown)) * 100)/100
+                })
             })
             console.log("coords from Screen.js", this.state.coords)
+            if (graph) {
+                this.setState({graphLength: Object.keys(graph).length})
+            }
             this.interval = setInterval(() => {this.setState(function () {return {cooldown: this.state.cooldown - 1}})}, 1000);
             
     }
@@ -105,7 +114,7 @@ class Screen extends Component {
                 this.setState({ 
                     cooldown: Math.round((parseFloat(error.response.data.cooldown)) * 100)/100,
                     movesLog: [...this.state.movesLog, 
-                    {errors: error.response.data.errors}],
+                    {errors: error}],
                     cooldowns: Math.round((parseFloat(error.response.data.cooldown)) * 100)/100})
             })
         }
@@ -136,68 +145,83 @@ class Screen extends Component {
                 console.log("unexplored", unexplored)
                 let direction = "null";
                 if (unexplored.length > 0) {
-                    direction = unexplored[Math.floor(Math.random() * unexplored.length)];
+                    direction = unexplored.pop();
+                    backtrackArray.push(direction);
+                } else if (backtrackArray.length > 0) {
+                    direction = inverse[backtrackArray.pop()];
                 } else {
                     direction = this.findClosestUnexplored(this.state.room_id, this.state.exits);
+
                 }
-                // let index = 0;
-                let oppDir = 'null';
-                if (direction === "n") {
-                    // index = 0;
-                    oppDir = 's';
-                } else if (direction === "s") {
-                    // index = 1;
-                    oppDir = 'n';
-                } else if (direction === "e") {
-                    // index = 2;
-                    oppDir = 'w';
+
+                if (Array.isArray(direction)) {
+                    this.continueDFT(direction[0]);
+                    this.continueDFT(direction[1]);
                 } else {
-                    // index = 3;
-                    oppDir = 'e';
+                    this.continueDFT(direction);
                 }
-                const data = {"direction": direction}
-                console.log("direction selected", direction);
-                this.setState(function () {return {prevRoom: this.state.currentRoom, prevID: this.state.room_id}});
                 
-                axios
-                .post('https://lambda-treasure-hunt.herokuapp.com/api/adv/move/', data, 
-                {headers: {Authorization: 'Token 1ca713aa4805a973344e3bee86f39961d50927b8'}})
-                .then(response => {
-                    console.log(response.data)
-                    this.setState(function () {return {currentRoom: response.data.title, currentDesc: response.data.description, cooldown: response.data.cooldown, coords: response.data.coordinates, exits: response.data.exits, room_id: response.data.room_id, 
-                    movesLog: [...this.state.movesLog, 
-                        {title: response.data.title,
-                        description: response.data.description,
-                        players: response.data.players,
-                        room_id: response.data.room_id,
-                        cooldown: parseInt(response.data.cooldown),
-                        errors: response.data.errors}]}})
-                    graph[`Room ${this.state.prevID}`]["exits"][direction] = response.data.room_id;
-                    // if (!graph[`Room ${response.data.room_id}`]){
-                    let object = {};
-                    for (let i = 0; i < this.state.exits.length; i++) {
-                        object[this.state.exits[i]] = "?"
-                    }
-                    graph[`Room ${response.data.room_id}`] = {"coords": this.state.coords, "exits": object};
-                    // }
-                    graph[`Room ${response.data.room_id}`]["exits"][oppDir] = this.state.prevID;
-                    // this.timeout2 = setTimeout(() => this.startBFT, this.state.cooldown * 1000);
-                    this.props.update(graph, this.state.room_id, this.state.coords.replace(/["()]/gi, '').split(","));
-                })
-                .catch(error => {
-                    console.log("ERROR:", error, Object.getOwnPropertyNames(error));
-                    this.setState({ 
-                        movesLog: [...this.state.movesLog, 
-                        {error: error}],
-                        // cooldown: Math.round((parseFloat(error.response.data.cooldown)) * 100)/100
-                    })
-                })
-            localStorage.setItem("graph", JSON.stringify(graph));
-            }, 11000);
-            
+            }, 6000);
+            this.setState({graphLength: Object.keys(graph).length})
             // this.interval = setInterval(() => {this.setState(function () {return {cooldown: this.state.cooldown - 1}})}, 1000);
             // this.timeout2 = setTimeout(() => this.startBFT, this.state.cooldown * 1000);
         // }
+    }
+
+    continueDFT = (direction) => {
+        // let index = 0;
+        let oppDir = 'null';
+        if (direction === "n") {
+            // index = 0;
+            oppDir = 's';
+        } else if (direction === "s") {
+            // index = 1;
+            oppDir = 'n';
+        } else if (direction === "e") {
+            // index = 2;
+            oppDir = 'w';
+        } else {
+            // index = 3;
+            oppDir = 'e';
+        }
+        const data = {"direction": direction}
+        console.log("direction selected", direction);
+        this.setState(function () {return {prevRoom: this.state.currentRoom, prevID: this.state.room_id}});
+        
+        axios
+        .post('https://lambda-treasure-hunt.herokuapp.com/api/adv/move/', data, 
+        {headers: {Authorization: 'Token 1ca713aa4805a973344e3bee86f39961d50927b8'}})
+        .then(response => {
+            console.log(response.data)
+            this.setState(function () {return {currentRoom: response.data.title, currentDesc: response.data.description, cooldown: response.data.cooldown, coords: response.data.coordinates, exits: response.data.exits, room_id: response.data.room_id, 
+            movesLog: [...this.state.movesLog, 
+                {title: response.data.title,
+                description: response.data.description,
+                players: response.data.players,
+                room_id: response.data.room_id,
+                cooldown: parseInt(response.data.cooldown),
+                errors: response.data.errors}]}})
+            graph[`Room ${this.state.prevID}`]["exits"][direction] = response.data.room_id;
+            if (!graph[`Room ${response.data.room_id}`]){
+                let object = {};
+                for (let i = 0; i < this.state.exits.length; i++) {
+                    object[this.state.exits[i]] = "?"
+                }
+                graph[`Room ${response.data.room_id}`] = {"coords": this.state.coords, "exits": object};
+            }
+            graph[`Room ${response.data.room_id}`]["exits"][oppDir] = this.state.prevID;
+            // this.timeout2 = setTimeout(() => this.startBFT, this.state.cooldown * 1000);
+            this.props.update(graph, this.state.room_id, this.state.coords.replace(/["()]/gi, '').split(","));
+        })
+        .catch(error => {
+            console.log("ERROR:", error, Object.getOwnPropertyNames(error));
+            this.setState({ 
+                movesLog: [...this.state.movesLog, 
+                {error: error}],
+                // cooldown: Math.round((parseFloat(error.response.data.cooldown)) * 100)/100
+            })
+        })
+    localStorage.setItem("graph", JSON.stringify(graph));
     }
 
     stopDFT = () => {
@@ -222,15 +246,20 @@ class Screen extends Component {
                     if (graph[`Room ${v}`]["exits"][exits[i]] === "?") {
                         return exits[i];
                     } else {
-                        const backtrack = Object.keys(graph[`Room ${v}`]["exits"])
-                        const otherIDs = Object.values(graph[`Room ${v}`]["exits"])
+                        const backtrack = Object.keys(graph[`Room ${v}`]["exits"]) // directions
+                        const otherIDs = Object.values(graph[`Room ${v}`]["exits"]) // room ids
                         for (let j = 0; j < otherIDs.length; j++) {
-                            for (let k = 0; k < Object.keys(graph[`Room ${otherIDs[j]}`]["exits"]).length; k++)
-                            if (graph[`Room ${otherIDs[j]}`]["exits"][k] === "?") {
-                                return k
-                            } else {
-                                const random = backtrack[Math.floor(Math.random() * backtrack.length)];
-                                return random;
+                            for (let k = 0; k < Object.keys(graph[`Room ${otherIDs[j]}`]["exits"]).length; k++) {
+                                // console.log("graph Room otherIDs[j][exits]", graph[`Room ${otherIDs[j]}`]["exits"])
+                                if (Object.values(graph[`Room ${otherIDs[j]}`]["exits"])[k] === "?") {
+                                    console.log("line 246 in Screen.js")
+                                    return [Object.keys(graph[`Room ${v}`]["exits"])[j], Object.keys(graph[`Room ${otherIDs[j]}`]["exits"])[k]]
+                                } else {
+                                    // break;
+                                    const random = backtrack[Math.floor(Math.random() * backtrack.length)];
+                                    return random;
+                                    // this.findClosestUnexplored(otherIDs[j], graph[`Room ${otherIDs[j]}`]["exits"])
+                                }
                             }
                         }
                     }
@@ -254,6 +283,7 @@ class Screen extends Component {
         const history = this.state.movesLog.slice().reverse();
         return (
             <div>
+                <div>{this.state.graphLength} out of 500 rooms explored</div>
                 <div className="screen">
                 {history.map(move => 
                     <div>
@@ -266,8 +296,8 @@ class Screen extends Component {
                         {move.message ? <p className="messageP">{move.message}</p> : null}
                         {move.cooldown ? <p className="cooldownP">Cooldown: {this.state.cooldown}</p> : null}
                         {move.cooldowns ? <p className="cooldownP">Cooldown: {this.state.cooldowns}</p> : null}
-                        {move.error ? <p className="errorP">{move.error}</p> : null}
-                        {move.errors ?  <p className="errorP">{move.errors}</p> : null}
+                        {/* {move.error ? <p className="errorP">{move.error}</p> : null}
+                        {move.errors ?  <p className="errorP">{move.errors}</p> : null} */}
                     </div>
                 )}
                 </div>
